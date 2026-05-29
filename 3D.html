@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport"
+content="width=device-width, initial-scale=1.0">
+
+<title>DreamByte Universe 3D</title>
+
+<style>
+
+body{
+    margin:0;
+    overflow:hidden;
+    background:black;
+    font-family:Arial;
+}
+
+canvas{
+    display:block;
+}
+
+#ui{
+
+    position:fixed;
+
+    top:10px;
+    left:10px;
+
+    width:min(340px,92vw);
+
+    max-height:92vh;
+
+    overflow:auto;
+
+    background:rgba(0,0,0,0.72);
+
+    color:white;
+
+    padding:14px;
+
+    border-radius:18px;
+
+    backdrop-filter:blur(10px);
+
+    z-index:5;
+}
+
+button,
+select,
+input{
+
+    width:100%;
+
+    margin-top:7px;
+
+    padding:10px;
+
+    border:none;
+
+    border-radius:12px;
+
+    font-size:15px;
+}
+
+button{
+    cursor:pointer;
+}
+
+#info{
+
+    position:fixed;
+
+    top:10px;
+    right:10px;
+
+    background:rgba(0,0,0,0.6);
+
+    color:white;
+
+    padding:10px;
+
+    border-radius:12px;
+
+    font-size:13px;
+
+    z-index:5;
+}
+
+.mobile{
+
+    position:fixed;
+
+    bottom:20px;
+
+    right:20px;
+
+    width:65px;
+
+    height:65px;
+
+    border-radius:50%;
+
+    border:none;
+
+    background:#111;
+
+    color:white;
+
+    font-size:28px;
+
+    z-index:20;
+}
+
+.hidden{
+    display:none;
+}
+
+.small{
+    font-size:12px;
+    color:#aaa;
+    margin-top:10px;
+}
+
+</style>
+</head>
+<body>
+
+<div id="info">
+🌌 Objetos: <span id="count">0</span><br>
+🚀 WASD = mover cámara<br>
+🖱️ Mouse = mirar<br>
+🤏 Scroll = zoom
+</div>
+
+<button class="mobile"
+onclick="toggleUI()">☰</button>
+
+<div id="ui">
+
+<h2>🌌 Universe Simulator 3D</h2>
+
+<select id="preset">
+
+<option value="earth">🌍 Tierra</option>
+<option value="mars">🔴 Marte</option>
+<option value="gas">🪐 Gigante gaseoso</option>
+<option value="lava">🌋 Lava</option>
+<option value="ice">🧊 Helado</option>
+<option value="star">☀️ Estrella</option>
+<option value="blackhole">🕳️ Agujero negro</option>
+<option value="asteroid">☄️ Asteroide</option>
+<option value="ufo">🛸 OVNI</option>
+<option value="flipflop">🩴 Chancla</option>
+<option value="secret">🤫 ???</option>
+<option value="custom">⚙️ Custom</option>
+
+</select>
+
+<label>Masa</label>
+
+<input type="range"
+id="mass"
+min="1"
+max="300000"
+value="200">
+
+<button onclick="enablePlacement()">
+📍 Colocar objeto
+</button>
+
+<button onclick="spawnSolar()">
+☀️ Sistema Solar
+</button>
+
+<button onclick="spawnGalaxies()">
+🌌 Colisión Galáctica
+</button>
+
+<button onclick="spawnChaos()">
+☢️ Caos Universal
+</button>
+
+<button onclick="clearWorld()">
+🧹 Limpiar
+</button>
+
+<div class="small">
+
+🌌 Universo totalmente 3D<br>
+🪐 Órbitas reales<br>
+🕳️ Agujeros negros absorben cosas<br>
+☄️ Asteroides chocan<br>
+🤫 Hay un planeta secreto aterrador<br>
+📱 Compatible móvil/tablet/PC
+
+</div>
+
+</div>
+
+<script type="module">
+
+import * as THREE from
+"https://cdn.jsdelivr.net/npm/three@0.160/build/three.module.js";
+
+import { OrbitControls }
+from
+"https://cdn.jsdelivr.net/npm/three@0.160/examples/jsm/controls/OrbitControls.js";
+
+// =====================
+// ESCENA
+// =====================
+
+const scene=new THREE.Scene();
+
+scene.background=
+new THREE.Color(0x000000);
+
+const camera=
+new THREE.PerspectiveCamera(
+
+    75,
+
+    window.innerWidth/window.innerHeight,
+
+    0.1,
+
+    100000
+);
+
+camera.position.set(0,300,900);
+
+const renderer=
+new THREE.WebGLRenderer({
+    antialias:true
+});
+
+renderer.setSize(
+    window.innerWidth,
+    window.innerHeight
+);
+
+document.body.appendChild(renderer.domElement);
+
+// =====================
+// CONTROLES
+// =====================
+
+const controls=
+new OrbitControls(
+    camera,
+    renderer.domElement
+);
+
+controls.enableDamping=true;
+
+// =====================
+// LUCES
+// =====================
+
+const ambient=
+new THREE.AmbientLight(
+    0xffffff,
+    0.4
+);
+
+scene.add(ambient);
+
+const light=
+new THREE.PointLight(
+    0xffffff,
+    3
+);
+
+scene.add(light);
+
+// =====================
+// ESTRELLAS FONDO
+// =====================
+
+const starsGeometry=
+new THREE.BufferGeometry();
+
+const starVertices=[];
+
+for(let i=0;i<12000;i++){
+
+    starVertices.push(
+
+        (Math.random()-0.5)*80000,
+        (Math.random()-0.5)*80000,
+        (Math.random()-0.5)*80000
+    );
+}
+
+starsGeometry.setAttribute(
+
+    "position",
+
+    new THREE.Float32BufferAttribute(
+        starVertices,
+        3
+    )
+);
+
+const starsMaterial=
+new THREE.PointsMaterial({
+
+    color:0xffffff,
+    size:2
+});
+
+const starField=
+new THREE.Points(
+    starsGeometry,
+    starsMaterial
+);
+
+scene.add(starField);
+
+// =====================
+// OBJETOS
+// =====================
+
+let bodies=[];
+
+const G=0.0008;
+
+class Body{
+
+    constructor(
+        x,y,z,
+        mass,
+        vx,vy,vz,
+        type,
+        color
+    ){
+
+        this.mass=mass;
+
+        this.velocity=
+        new THREE.Vector3(vx,vy,vz);
+
+        this.type=type;
+
+        this.radius=
+        Math.max(2,Math.cbrt(mass));
+
+        this.mesh=
+        createMesh(
+            this.radius,
+            type,
+            color
+        );
+
+        this.mesh.position.set(x,y,z);
+
+        scene.add(this.mesh);
+    }
+
+    update(){
+
+        this.mesh.position.add(this.velocity);
+
+        this.mesh.rotation.y+=0.003;
+    }
+}
+
+// =====================
+// CREAR MESH
+// =====================
+
+function createMesh(
+    radius,
+    type,
+    color
+){
+
+    if(type==="flipflop"){
+
+        return emojiSprite("🩴",radius*6);
+    }
+
+    if(type==="ufo"){
+
+        return emojiSprite("🛸",radius*6);
+    }
+
+    const geo=
+    new THREE.SphereGeometry(
+        radius,
+        32,
+        32
+    );
+
+    let material;
+
+    if(type==="earth"){
+
+        material=
+        new THREE.MeshStandardMaterial({
+            color:0x3fa9ff
+        });
+    }
+
+    else if(type==="mars"){
+
+        material=
+        new THREE.MeshStandardMaterial({
+            color:0xd44a2f
+        });
+    }
+
+    else if(type==="gas"){
+
+        material=
+        new THREE.MeshStandardMaterial({
+            color:0xd6b46f
+        });
+    }
+
+    else if(type==="lava"){
+
+        material=
+        new THREE.MeshStandardMaterial({
+            color:0xff5500,
+            emissive:0xff2200
+        });
+    }
+
+    else if(type==="ice"){
+
+        material=
+        new THREE.MeshStandardMaterial({
+            color:0xbdeeff
+        });
+    }
+
+    else if(type==="star"){
+
+        material=
+        new THREE.MeshBasicMaterial({
+            color:0xffcc55
+        });
+    }
+
+    else if(type==="blackhole"){
+
+        material=
+        new THREE.MeshBasicMaterial({
+            color:0x000000
+        });
+    }
+
+    // PLANETA SECRETO
+    else if(type==="secret"){
+
+        material=
+        new THREE.MeshStandardMaterial({
+
+            color:0x220022,
+
+            emissive:0xaa0000,
+
+            emissiveIntensity:2
+        });
+
+        const eyes=
+        new THREE.PointLight(
+            0xff0000,
+            4,
+            200
+        );
+
+        scene.add(eyes);
+    }
+
+    else{
+
+        material=
+        new THREE.MeshStandardMaterial({
+            color:
+            color || 0xffffff
+        });
+    }
+
+    return new THREE.Mesh(
+        geo,
+        material
+    );
+}
+
+// =====================
+// EMOJIS
+// =====================
+
+function emojiSprite(
+    emoji,
+    size
+){
+
+    const canvas=
+    document.createElement("canvas");
+
+    canvas.width=256;
+    canvas.height=256;
+
+    const ctx=
+    canvas.getContext("2d");
+
+    ctx.font="180px serif";
+
+    ctx.textAlign="center";
+
+    ctx.textBaseline="middle";
+
+    ctx.fillText(
+        emoji,
+        128,
+        128
+    );
+
+    const texture=
+    new THREE.CanvasTexture(canvas);
+
+    const material=
+    new THREE.SpriteMaterial({
+        map:texture
+    });
+
+    const sprite=
+    new THREE.Sprite(material);
+
+    sprite.scale.set(size,size,size);
+
+    return sprite;
+}
+
+// =====================
+// FÍSICAS
+// =====================
+
+function physics(){
+
+    for(let i=0;i<bodies.length;i++){
+
+        let a=bodies[i];
+
+        for(let j=i+1;j<bodies.length;j++){
+
+            let b=bodies[j];
+
+            let dx=
+            b.mesh.position.x
+            -a.mesh.position.x;
+
+            let dy=
+            b.mesh.position.y
+            -a.mesh.position.y;
+
+            let dz=
+            b.mesh.position.z
+            -a.mesh.position.z;
+
+            let dist=
+            Math.sqrt(
+                dx*dx+
+                dy*dy+
+                dz*dz
+            );
+
+            if(dist<1) continue;
+
+            let force=
+            G*(a.mass*b.mass)
+            /(dist*dist);
+
+            let ax=
+            force*dx/dist/a.mass;
+
+            let ay=
+            force*dy/dist/a.mass;
+
+            let az=
+            force*dz/dist/a.mass;
+
+            let bx=
+            -force*dx/dist/b.mass;
+
+            let by=
+            -force*dy/dist/b.mass;
+
+            let bz=
+            -force*dz/dist/b.mass;
+
+            a.velocity.x+=ax;
+            a.velocity.y+=ay;
+            a.velocity.z+=az;
+
+            b.velocity.x+=bx;
+            b.velocity.y+=by;
+            b.velocity.z+=bz;
+
+            // COLISIONES
+            if(dist<(a.radius+b.radius)){
+
+                if(a.mass>b.mass){
+
+                    a.mass+=b.mass;
+
+                    scene.remove(b.mesh);
+
+                    bodies.splice(j,1);
+
+                    j--;
+
+                }else{
+
+                    b.mass+=a.mass;
+
+                    scene.remove(a.mesh);
+
+                    bodies.splice(i,1);
+
+                    i--;
+
+                    break;
+                }
+            }
+        }
+    }
+
+    for(let body of bodies){
+
+        body.update();
+    }
+}
+
+// =====================
+// LOOP
+// =====================
+
+function animate(){
+
+    requestAnimationFrame(animate);
+
+    physics();
+
+    controls.update();
+
+    renderer.render(
+        scene,
+        camera
+    );
+
+    document.getElementById("count")
+    .textContent=bodies.length;
+}
+
+animate();
+
+// =====================
+// CREAR OBJETOS
+// =====================
+
+let placing=false;
+
+function enablePlacement(){
+
+    placing=true;
+
+    alert(
+    "Toca/click en el universo para colocar."
+    );
+}
+
+window.enablePlacement=
+enablePlacement;
+
+renderer.domElement
+.addEventListener(
+"pointerdown",
+(e)=>{
+
+    if(!placing) return;
+
+    placing=false;
+
+    const mouse=
+    new THREE.Vector2(
+
+        (e.clientX/window.innerWidth)*2-1,
+
+        -(e.clientY/window.innerHeight)*2+1
+    );
+
+    const raycaster=
+    new THREE.Raycaster();
+
+    raycaster.setFromCamera(
+        mouse,
+        camera
+    );
+
+    const pos=
+    raycaster.ray.origin.clone()
+    .add(
+        raycaster.ray.direction
+        .multiplyScalar(1000)
+    );
+
+    let type=
+    document.getElementById("preset").value;
+
+    let mass=
+    parseFloat(
+        document.getElementById("mass").value
+    );
+
+    let color=0xffffff;
+
+    if(type==="custom"){
+
+        color=
+        prompt(
+            "Color hexadecimal:",
+            "#00ffff"
+        ) || "#00ffff";
+    }
+
+    bodies.push(
+
+        new Body(
+
+            pos.x,
+            pos.y,
+            pos.z,
+
+            mass,
+
+            (Math.random()-0.5)*0.5,
+            (Math.random()-0.5)*0.5,
+            (Math.random()-0.5)*0.5,
+
+            type,
+
+            color
+        )
+    );
+});
+
+// =====================
+// SISTEMA SOLAR
+// =====================
+
+function spawnSolar(){
+
+    clearWorld();
+
+    bodies.push(
+
+        new Body(
+            0,0,0,
+            300000,
+            0,0,0,
+            "star"
+        )
+    );
+
+    bodies.push(
+
+        new Body(
+            500,0,0,
+            100,
+            0,0,7,
+            "earth"
+        )
+    );
+
+    bodies.push(
+
+        new Body(
+            800,0,0,
+            70,
+            0,0,5,
+            "mars"
+        )
+    );
+
+    bodies.push(
+
+        new Body(
+            1400,0,0,
+            900,
+            0,0,3,
+            "gas"
+        )
+    );
+}
+
+window.spawnSolar=
+spawnSolar;
+
+// =====================
+// GALAXIAS
+// =====================
+
+function spawnGalaxies(){
+
+    clearWorld();
+
+    for(let i=0;i<100;i++){
+
+        bodies.push(
+
+            new Body(
+
+                -3000+
+                Math.random()*1500,
+
+                (Math.random()-0.5)*1000,
+
+                (Math.random()-0.5)*1000,
+
+                Math.random()*500+20,
+
+                0,
+                0,
+                4,
+
+                "star"
+            )
+        );
+
+        bodies.push(
+
+            new Body(
+
+                3000+
+                Math.random()*1500,
+
+                (Math.random()-0.5)*1000,
+
+                (Math.random()-0.5)*1000,
+
+                Math.random()*500+20,
+
+                0,
+                0,
+                -4,
+
+                "star"
+            )
+        );
+    }
+
+    bodies.push(
+
+        new Body(
+            -3000,0,0,
+            900000,
+            0,0,4,
+            "blackhole"
+        )
+    );
+
+    bodies.push(
+
+        new Body(
+            3000,0,0,
+            900000,
+            0,0,-4,
+            "blackhole"
+        )
+    );
+}
+
+window.spawnGalaxies=
+spawnGalaxies;
+
+// =====================
+// CAOS
+// =====================
+
+function spawnChaos(){
+
+    clearWorld();
+
+    const types=[
+
+        "earth",
+        "mars",
+        "gas",
+        "lava",
+        "ice",
+        "star",
+        "blackhole",
+        "asteroid",
+        "ufo",
+        "flipflop",
+        "secret"
+    ];
+
+    for(let i=0;i<200;i++){
+
+        let t=
+        types[
+        Math.floor(
+        Math.random()*types.length
+        )];
+
+        bodies.push(
+
+            new Body(
+
+                (Math.random()-0.5)*15000,
+
+                (Math.random()-0.5)*15000,
+
+                (Math.random()-0.5)*15000,
+
+                Math.random()*100000+10,
+
+                (Math.random()-0.5)*2,
+
+                (Math.random()-0.5)*2,
+
+                (Math.random()-0.5)*2,
+
+                t
+            )
+        );
+    }
+}
+
+window.spawnChaos=
+spawnChaos;
+
+// =====================
+// LIMPIAR
+// =====================
+
+function clearWorld(){
+
+    for(let body of bodies){
+
+        scene.remove(body.mesh);
+    }
+
+    bodies=[];
+}
+
+window.clearWorld=
+clearWorld;
+
+// =====================
+// RESPONSIVE
+// =====================
+
+window.addEventListener(
+"resize",
+()=>{
+
+    camera.aspect=
+    window.innerWidth
+    /window.innerHeight;
+
+    camera.updateProjectionMatrix();
+
+    renderer.setSize(
+        window.innerWidth,
+        window.innerHeight
+    );
+});
+
+// =====================
+// UI
+// =====================
+
+function toggleUI(){
+
+    document.getElementById("ui")
+    .classList.toggle("hidden");
+}
+
+window.toggleUI=
+toggleUI;
+
+</script>
+</body>
+</html>
